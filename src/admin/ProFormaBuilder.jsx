@@ -1,0 +1,261 @@
+import { useState, useEffect } from 'preact/hooks';
+import { useStore } from '../data/store.js';
+import { calcLine, calcLineFromRate, calcProforma, nextProformaNumber, addDays, formatMoney } from '../data/pricing.js';
+import { getRateCategories, getRateItemsByCategory } from '../data/ratebook.js';
+import { saveProforma, getProformas, getProforma, updateProforma } from '../data/proformas.js';
+import { updateRequestStatus } from '../data/requests.js';
+
+export function ProFormaBuilder({ seed, editId, onDone, onCancel }) {
+  const [data] = useStore();
+  const [lines, setLines] = useState([]);
+  const [client, setClient] = useState({ name: '', phone: '', email: '', company: '', projectName: '', siteAddress: '', poNumber: '', zone: 'addis', requiredBy: '' });
+  const [discountPct, setDiscountPct] = useState(0);
+  const [markupPct, setMarkupPct] = useState(data.business.markupPct || 15);
+  const [contingencyPct, setContingencyPct] = useState(data.business.contingencyPct || 5);
+  const [useFreight, setUseFreight] = useState(true);
+  const [notes, setNotes] = useState('');
+  const [saved, setSaved] = useState(null);
+  const [existing, setExisting] = useState(null);
+  const [mode, setMode] = useState('materials');
+  const [pickCat, setPickCat] = useState('cement');
+  const [pickSku, setPickSku] = useState('sku_cem_425');
+  const [pickQty, setPickQty] = useState(1);
+  const [rateCats, setRateCats] = useState([]);
+  const [rateCat, setRateCat] = useState('');
+  const [rateItems, setRateItems] = useState([]);
+  const [rateSearch, setRateSearch] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      if (editId) {
+        const pf = await getProforma(editId);
+        if (pf) {
+          setExisting(pf);
+          setClient(Object.assign({}, client, pf.client || {}));
+          setLines(pf.lines || []);
+          setDiscountPct(pf.discountPct || 0);
+          setMarkupPct(pf.markupPct != null ? pf.markupPct : (data.business.markupPct || 15));
+          setContingencyPct(pf.contingencyPct != null ? pf.contingencyPct : (data.business.contingencyPct || 5));
+          setUseFreight(pf.useFreight !== false);
+          setNotes(pf.notes || '');
+          return;
+        }
+      }
+      if (seed) {
+        if (seed.client) setClient(Object.assign({}, client, seed.client));
+        if (seed.kind === 'materials' && seed.cart) {
+          const nextLines = seed.cart.map(c => { const p = data.products.find(x => x.id === c.sku); return p ? calcLine(p, c.qty) : null; }).filter(Boolean);
+          setLines(nextLines);
+        }
+        if (seed.description) setNotes(seed.description);
+        if (seed.notes) setNotes(seed.notes);
+      }
+    })();
+  }, []);
+
+  useEffect(() => { getRateCategories().then(c => { setRateCats(c); if (c.length && !rateCat) setRateCat(c[0].id); }); }, []);
+  useEffect(() => { if (rateCat) getRateItemsByCategory(rateCat).then(setRateItems); }, [rateCat]);
+
+  const productsInCat = data.products.filter(p => p.category === pickCat);
+  const currentProduct = data.products.find(p => p.id === pickSku) || productsInCat[0];
+
+  const addMaterial = () => { if (!currentProduct) return; setLines([...lines, calcLine(currentProduct, +pickQty || 1)]); setPickQty(1); };
+  const filteredRateItems = rateSearch ? rateItems.filter(i => (i.description || '').toLowerCase().includes(rateSearch.toLowerCase()) || (i.code || '').toLowerCase().includes(rateSearch.toLowerCase())) : rateItems;
+  const addRateLine = (item) => { const qty = prompt('Quantity for: ' + item.description + '\nUnit: ' + item.unit, '1'); if (!qty) return; setLines([...lines, calcLineFromRate(item, +qty || 1)]); };
+
+  const removeLine = (i) => setLines(lines.filter((_, idx) => idx !== i));
+  const editQty = (i, q) => { const n = lines.slice(); const line = n[i]; const newQty = Math.max(1, +q || 1); n[i] = Object.assign({}, line, { qty: newQty, lineTotal: Math.round(newQty * line.contractorPrice * 100) / 100, margin: Math.round((line.contractorPrice - line.basePrice) * newQty * 100) / 100 }); setLines(n); };
+  const editContractorPrice = (i, v) => { const n = lines.slice(); const line = n[i]; const cp = v === '' ? line.basePrice : +v; n[i] = Object.assign({}, line, { contractorPrice: cp, lineTotal: Math.round(line.qty * cp * 100) / 100, margin: Math.round((cp - line.basePrice) * line.qty * 100) / 100 }); setLines(n); };
+  const resetContractorPrice = (i) => { const n = lines.slice(); const line = n[i]; n[i] = Object.assign({}, line, { contractorPrice: line.basePrice, lineTotal: Math.round(line.qty * line.basePrice * 100) / 100, margin: 0 }); setLines(n); };
+
+  const totals = calcProforma({ lines, freightZone: useFreight ? client.zone : null, zones: data.freight.zones, discountPct, vatRate: data.business.vatRate, markupPct, contingencyPct });
+
+  const save = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (existing) {
+      const next = Object.assign({}, existing, {
+        client: Object.assign({}, client),
+        lines: lines.slice(),
+        discountPct, markupPct, contingencyPct, useFreight,
+        notes, totals
+      });
+      await updateProforma(existing.id, next);
+      setSaved(next);
+      return;
+    }
+    const all = await getProformas();
+    const pf = {
+      id: 'pf_' + Math.random().toString(36).slice(2, 9),
+      number: nextProformaNumber(all),
+      kind: lines.some(l => l.code) ? 'services' : 'materials',
+      requestId: seed && seed.id ? seed.id : null,
+      createdAt: today,
+      validUntil: addDays(today, data.business.validDays),
+      client: Object.assign({}, client),
+      lines: lines.slice(),
+      discountPct, markupPct, contingencyPct, useFreight,
+      notes, totals, status: 'draft'
+    };
+    await saveProforma(pf);
+    if (seed && seed.id) await updateRequestStatus(seed.id, 'quoted');
+    setSaved(pf);
+  };
+
+  if (saved) return (
+    <section class="section alt"><div class="container">
+      <div class="pf-actions no-print">
+        <button class="btn btn-primary" onClick={() => window.print()}>🖨 Print / Save PDF</button>
+        <button class="btn-back" onClick={onDone}>← Back</button>
+      </div>
+      <ProformaDoc pf={saved} business={data.business} currency={data.business.currency} />
+    </div></section>
+  );
+
+  return (
+    <section class="section alt"><div class="container">
+      <div class="admin-panel-head">
+        <h2>Pro Forma Builder {existing ? '· Editing ' + existing.number : (seed ? '· ' + seed.client.name : '(new)')}</h2>
+        <button class="btn-back" onClick={onCancel}>✕ Cancel</button>
+      </div>
+      <div class="pf-builder">
+        <h3>1 · Client & Project</h3>
+        <div class="pf-grid">
+          <input placeholder="Client name *" value={client.name} onInput={e => setClient(Object.assign({}, client, { name: e.target.value }))} />
+          <input placeholder="Phone *" value={client.phone} onInput={e => setClient(Object.assign({}, client, { phone: e.target.value }))} />
+          <input placeholder="Email" value={client.email} onInput={e => setClient(Object.assign({}, client, { email: e.target.value }))} />
+          <input placeholder="Company" value={client.company} onInput={e => setClient(Object.assign({}, client, { company: e.target.value }))} />
+          <input placeholder="Project name" value={client.projectName} onInput={e => setClient(Object.assign({}, client, { projectName: e.target.value }))} />
+          <input placeholder="Site address" value={client.siteAddress} onInput={e => setClient(Object.assign({}, client, { siteAddress: e.target.value }))} />
+          <input placeholder="PO number" value={client.poNumber} onInput={e => setClient(Object.assign({}, client, { poNumber: e.target.value }))} />
+          <select value={client.zone} onChange={e => setClient(Object.assign({}, client, { zone: e.target.value }))}>{data.freight.zones.map(z => <option value={z.id}>{z.name}</option>)}</select>
+        </div>
+        <h3>2 · Add Line Items</h3>
+        <div class="pf-mode-tabs">
+          <button class={'pf-mode ' + (mode === 'materials' ? 'active' : '')} onClick={() => setMode('materials')}>📦 Materials</button>
+          <button class={'pf-mode ' + (mode === 'ratebook' ? 'active' : '')} onClick={() => setMode('ratebook')} disabled={rateCats.length === 0}>📚 Rate Book {rateCats.length === 0 && '(empty)'}</button>
+        </div>
+        {mode === 'materials' && (
+          <div class="pf-add-row">
+            <select value={pickCat} onChange={e => { setPickCat(e.target.value); const first = data.products.find(p => p.category === e.target.value); if (first) setPickSku(first.id); }}>{data.categories.map(c => <option value={c.id}>{c.icon} {c.name}</option>)}</select>
+            <select value={pickSku} onChange={e => setPickSku(e.target.value)}>{productsInCat.map(p => <option value={p.id}>{p.name}</option>)}</select>
+            <input type="number" min="1" value={pickQty} onInput={e => setPickQty(e.target.value)} />
+            <span class="pf-unit">{currentProduct ? currentProduct.unit : ''}</span>
+            <button class="btn-add" onClick={addMaterial}>+ Add</button>
+          </div>
+        )}
+        {mode === 'ratebook' && rateCats.length > 0 && (
+          <>
+            <div class="pf-add-row" style="grid-template-columns: 1fr 1fr;">
+              <select value={rateCat} onChange={e => setRateCat(e.target.value)}>{rateCats.map(c => <option value={c.id}>{c.title}</option>)}</select>
+              <input placeholder="Search..." value={rateSearch} onInput={e => setRateSearch(e.target.value)} />
+            </div>
+            <div style="max-height:400px;overflow-y:auto;margin-top:8px;">
+              {filteredRateItems.slice(0, 200).map(it => (
+                <div class="ratebook-row" key={it.id}>
+                  <span class="rb-code">{it.code}</span>
+                  <span class="rb-desc">{it.description}</span>
+                  <span class="rb-unit">{it.unit}</span>
+                  <span class="rb-price">Br {(it.contractorPrice != null ? it.contractorPrice : it.basePrice || 0).toLocaleString()}</span>
+                  <button class="btn-add" onClick={() => addRateLine(it)}>+ Add</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {lines.length > 0 && (
+          <table class="pf-table" style="margin-top:20px;">
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Base (ref)</th><th>Your Quote</th><th>Total</th><th>Margin</th><th></th></tr></thead>
+            <tbody>
+              {lines.map((l, i) => (
+                <tr>
+                  <td>{l.name}<br/><small style="color:var(--gray);">{l.code || ''}</small></td>
+                  <td><input type="number" min="1" value={l.qty} onInput={e => editQty(i, e.target.value)} /></td>
+                  <td>{l.unit}</td>
+                  <td style="color:var(--gray);font-size:0.8rem;">Br {(l.basePrice || 0).toLocaleString()}</td>
+                  <td><input type="number" value={l.contractorPrice} onInput={e => editContractorPrice(i, e.target.value)} /></td>
+                  <td><strong>Br {(l.lineTotal || 0).toLocaleString()}</strong></td>
+                  <td style="color:var(--success);font-size:0.8rem;">Br {(l.margin || 0).toLocaleString()}</td>
+                  <td>
+                    <button class="btn-back" style="padding:4px 8px;font-size:0.7rem;" onClick={() => resetContractorPrice(i)}>↺</button>
+                    <button class="btn-del" onClick={() => removeLine(i)}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <h3>3 · Options</h3>
+        <div class="pf-grid">
+          <div class="admin-field"><label>Markup % (O&P)</label><input type="number" value={markupPct} onInput={e => setMarkupPct(+e.target.value || 0)} /></div>
+          <div class="admin-field"><label>Contingency %</label><input type="number" value={contingencyPct} onInput={e => setContingencyPct(+e.target.value || 0)} /></div>
+          <div class="admin-field"><label>Discount %</label><input type="number" value={discountPct} onInput={e => setDiscountPct(+e.target.value || 0)} /></div>
+          <div class="admin-field"><label>Freight</label><select value={useFreight ? 'on' : 'off'} onChange={e => setUseFreight(e.target.value === 'on')}><option value="on">Include freight</option><option value="off">No freight</option></select></div>
+        </div>
+        <textarea rows="2" placeholder="Notes" value={notes} onInput={e => setNotes(e.target.value)} />
+        <div class="pf-totals">
+          <div><span>Subtotal</span><span>{formatMoney(totals.subtotal, data.business.currency)}</span></div>
+          <div><span>Markup ({markupPct}%)</span><span>+ {formatMoney(totals.markup, data.business.currency)}</span></div>
+          <div><span>Contingency ({contingencyPct}%)</span><span>+ {formatMoney(totals.contingency, data.business.currency)}</span></div>
+          <div><span>Discount</span><span>− {formatMoney(totals.discount, data.business.currency)}</span></div>
+          {useFreight && <div><span>Freight</span><span>{formatMoney(totals.freight, data.business.currency)}</span></div>}
+          <div><span>VAT ({Math.round(data.business.vatRate * 100)}%)</span><span>{formatMoney(totals.vat, data.business.currency)}</span></div>
+          <div class="pf-grand"><span>Grand total</span><span>{formatMoney(totals.grandTotal, data.business.currency)}</span></div>
+          <div class="pf-lead"><span>Internal margin</span><span>{formatMoney(totals.totalMargin, data.business.currency)}</span></div>
+        </div>
+        <div class="pf-actions"><button class="btn btn-primary" disabled={!client.name || !client.phone || lines.length === 0} onClick={save}>{existing ? 'Save Changes' : 'Generate Pro Forma'}</button></div>
+      </div>
+    </div></section>
+  );
+}
+
+function ProformaDoc({ pf, business, currency }) {
+  return (
+    <div class="pf-doc">
+      <div class="pf-doc-header">
+        <div>
+          <h1>{business.nameEn}</h1>
+          <p style="font-weight:600;">{business.nameAm}</p>
+          <p>{business.addressEn}</p>
+          <p>{business.cell1} · {business.cell2}</p>
+          <p>{business.email}</p>
+          <p style="margin-top:6px;font-size:0.78rem;">{business.fieldOfBusiness} · License {business.businessLicenseNo}<br/>TIN {business.tin} · Capital {business.capital}</p>
+        </div>
+        <div class="pf-doc-meta">
+          <h2>PRO FORMA</h2>
+          <p><strong>{pf.number}</strong></p>
+          <p>Issued: {pf.createdAt}</p>
+          <p>Valid until: {pf.validUntil}</p>
+        </div>
+      </div>
+      <div class="pf-doc-client">
+        <div><strong>Bill to</strong><p>{pf.client.name}</p>{pf.client.company && <p>{pf.client.company}</p>}<p>{pf.client.phone}</p>{pf.client.email && <p>{pf.client.email}</p>}</div>
+        <div><strong>Project / Site</strong><p>{pf.client.projectName || '—'}</p><p>{pf.client.siteAddress || '—'}</p>{pf.client.poNumber && <p>PO: {pf.client.poNumber}</p>}</div>
+      </div>
+      <table class="pf-table pf-doc-table">
+        <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Unit</th><th>Unit price</th><th>Total</th></tr></thead>
+        <tbody>
+          {pf.lines.map((l, i) => (<tr><td>{i + 1}</td><td>{l.name}{l.code ? ' (' + l.code + ')' : ''}</td><td>{l.qty}</td><td>{l.unit}</td><td>{formatMoney(l.contractorPrice, currency)}</td><td>{formatMoney(l.lineTotal, currency)}</td></tr>))}
+        </tbody>
+      </table>
+      <div class="pf-doc-totals">
+        <div><span>Subtotal</span><span>{formatMoney(pf.totals.subtotal, currency)}</span></div>
+        {pf.markupPct > 0 && <div><span>Overhead & Profit ({pf.markupPct}%)</span><span>+ {formatMoney(pf.totals.markup, currency)}</span></div>}
+        {pf.contingencyPct > 0 && <div><span>Contingency ({pf.contingencyPct}%)</span><span>+ {formatMoney(pf.totals.contingency, currency)}</span></div>}
+        {pf.totals.discount > 0 && <div><span>Discount</span><span>− {formatMoney(pf.totals.discount, currency)}</span></div>}
+        {pf.useFreight && <div><span>Freight</span><span>{formatMoney(pf.totals.freight, currency)}</span></div>}
+        <div><span>VAT 15%</span><span>{formatMoney(pf.totals.vat, currency)}</span></div>
+        <div class="pf-grand"><span>Grand total</span><span>{formatMoney(pf.totals.grandTotal, currency)}</span></div>
+      </div>
+      <div class="pf-doc-terms">
+        <strong>Terms · ውል</strong>
+        <p>{business.defaultTerms}</p>
+        {business.disclaimer && <p style="margin-top:8px;font-style:italic;">{business.disclaimer}</p>}
+        {pf.notes && <p style="margin-top:8px;"><strong>Notes:</strong> {pf.notes}</p>}
+      </div>
+      <div class="pf-doc-sign">
+        <div>___________________________<br/>For {business.nameEn}</div>
+        <div>___________________________<br/>Client acceptance</div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,13 @@
+{
+  "name": "mesayabebe",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": { "preact": "^10.20.1" },
+  "devDependencies": { "@preact/preset-vite": "^2.8.2", "vite": "^5.2.0" }
+}
