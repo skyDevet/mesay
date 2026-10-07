@@ -102,7 +102,7 @@ export function ProFormaBuilder({ seed, editId, onDone, onCancel }) {
   };
 
   if (saved) return (
-    <section class="section altx"><div class="container">
+    <section class="section alt"><div class="container">
       <div class="pf-actions no-print">
         <button class="btn btn-primary" onClick={() => window.print()}>🖨 Print / Save PDF</button>
         <button class="btn-back" onClick={onDone}>← Back</button>
@@ -112,7 +112,7 @@ export function ProFormaBuilder({ seed, editId, onDone, onCancel }) {
   );
 
   return (
-    <section class="section altx"><div class="container">
+    <section class=""><div class="">
       <div class="admin-panel-head">
         <h2>Pro Forma Builder {existing ? '· Editing ' + existing.number : (seed ? '· ' + seed.client.name : '(new)')}</h2>
         <button class="btn-back" onClick={onCancel}>✕ Cancel</button>

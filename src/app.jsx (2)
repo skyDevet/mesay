@@ -19,7 +19,6 @@ export function App() {
   const [staff, setStaff] = useState(sessionStorage.getItem('mesay_staff') === '1');
   const [loginOpen, setLoginOpen] = useState(false);
   const [cart, setCart] = useState([]);
-  const [openForm, setOpenForm] = useState(null); // 'materials' | 'services' | null
 
   useEffect(() => {
     (async () => {
@@ -33,36 +32,19 @@ export function App() {
     })();
   }, []);
 
-  // When the user picks a form, scroll to it once it renders
-  useEffect(() => {
-    if (openForm) {
-      requestAnimationFrame(() => {
-        const id = openForm === 'materials' ? 'request-materials' : 'request-services';
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  }, [openForm]);
-
   if (staff) return <Admin onExit={() => setStaff(false)} />;
   if (loginOpen) return <StaffLogin onSuccess={() => { setLoginOpen(false); setStaff(true); }} onExit={() => setLoginOpen(false)} />;
 
   return (
     <>
-      <Nav onStaff={() => setLoginOpen(true)} onRequestQuote={() => setOpenForm('materials')} />
-      <Hero onOpenForm={setOpenForm} />
+      <Nav onStaff={() => setLoginOpen(true)} />
+      <Hero />
       <TrustStats />
       <Services />
       <Projects onOpen={setActiveProject} />
       <Catalog cart={cart} setCart={setCart} />
-
-      {openForm === 'materials' && (
-        <RequestMaterials cart={cart} setCart={setCart} onClose={() => setOpenForm(null)} />
-      )}
-      {openForm === 'services' && (
-        <RequestServices onClose={() => setOpenForm(null)} />
-      )}
-
+      <RequestMaterials cart={cart} setCart={setCart} />
+      <RequestServices />
       <Reviews />
       <Footer />
       {activeProject && <ProjectModal project={activeProject} onClose={() => setActiveProject(null)} />}

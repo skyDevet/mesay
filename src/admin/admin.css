@@ -17,6 +17,8 @@
 .admin-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 @media (max-width: 600px) { .admin-grid2, .admin-grid3 { grid-template-columns: 1fr; } }
+
+.admin-cardx { margin-left:-4em; background: white; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .admin-card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .admin-subcard { background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
 .admin-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -45,7 +47,7 @@
 .pf-mode { padding: 8px 16px; border-radius: 8px; background: var(--border); color: var(--gray); font-weight: 600; font-size: 0.85rem; }
 .pf-mode.active { background: var(--dark); color: white; }
 .pf-mode:disabled { opacity: 0.4; cursor: not-allowed; }
-.ratebook-row { display: grid; grid-template-columns: 70px 1fr 70px 100px 70px; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+.ratebook-row { display: grid; grid-template-columns: 70px 1fr 70px 50px 70px; gap: 4px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
 .ratebook-row:hover { background: #f9fafb; }
 .rb-code { font-family: monospace; color: var(--gray); font-size: 0.75rem; }
 .rb-desc { font-size: 0.82rem; }

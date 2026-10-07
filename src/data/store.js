@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
-const KEY = 'mesay_data_v1';
+const KEY = 'mesay_data_v2';
 
 export const DEFAULT_DATA = {
   business: {
@@ -7,7 +7,7 @@ export const DEFAULT_DATA = {
     nameAm: 'መሳይ አበበ አጠቃላይ ተቋራጭ',
     taglineEn: 'General Contractor (511114) · Building, Road & Renovation',
     taglineAm: 'አጠቃላይ ተቋራጭ (511114) · ህንፃ፣ መንገድ እና ማሻሻያ',
-    subtitleEn: 'Licensed general contractor based in Gulele, Addis Ababa. Building construction, road works, renovation — plus construction materials delivered to your site.',
+    subtitleEn: 'Building construction, road works, renovation — plus construction materials delivered to your site.',
     subtitleAm: 'በአዲስ አበባ ጉለሌ ክፍለ ከተማ የተመዘገበ አጠቃላይ ተቋራጭ።',
     ownerName: 'Mr. MESAY ABEBE BAHIRE',
     fieldOfBusiness: '(511114) General Contractor Except water work',
@@ -45,9 +45,42 @@ export const DEFAULT_DATA = {
     { id: 'sv4', icon: '📦', titleEn: 'General Supply', titleAm: 'አጠቃላይ አቅርቦት', descEn: 'Construction materials, fixtures, and equipment supply.' }
   ],
   projects: [
-    { id: 'p1', title: 'Bole Residential Building', type: 'building', icon: '🏢', desc: 'Multi-storey residential building.', budget: 'ETB 85,000,000', duration: '24 months', year: 2024, client: 'Private developer' },
-    { id: 'p2', title: 'Gulele Access Road', type: 'road', icon: '🛣️', desc: '2.8 km asphalt access road with drainage.', budget: 'ETB 42,000,000', duration: '14 months', year: 2023, client: 'Sub-city administration' },
-    { id: 'p3', title: 'Commercial Office Fit-out', type: 'building', icon: '🏢', desc: '1,800 m² office interior fit-out.', budget: 'ETB 28,000,000', duration: '8 months', year: 2023, client: 'Private client' }
+    {
+      id: 'p1',
+      title: 'Bole Residential Building',
+      type: 'building',
+      icon: '🏢',
+      image: 'img/messe/1.jpg',
+      desc: 'Multi-storey residential building.',
+      budget: 'ETB 85,000,000',
+      duration: '24 months',
+      year: 2024,
+      client: 'Private developer'
+    },
+    {
+      id: 'p2',
+      title: 'Gulele Access Road',
+      type: 'road',
+      icon: '🛣️',
+      image: 'img/messe/2.jpg',
+      desc: '2.8 km asphalt access road with drainage.',
+      budget: 'ETB 42,000,000',
+      duration: '14 months',
+      year: 2023,
+      client: 'Sub-city administration'
+    },
+    {
+      id: 'p3',
+      title: 'Commercial Office Fit-out',
+      type: 'building',
+      icon: '🏢',
+      image: 'img/messe/3.jpg',
+      desc: '1,800 m² office interior fit-out.',
+      budget: 'ETB 28,000,000',
+      duration: '8 months',
+      year: 2023,
+      client: 'Private client'
+    }
   ],
   reviews: [
     { id: 'r1', name: 'Ato Bekele T.', loc: 'Addis Ababa', stars: 5, text: 'Delivered our residential building on schedule. Professional site management.' },
@@ -82,9 +115,9 @@ export const DEFAULT_DATA = {
     ]
   },
   hero: {
-    badge1En: 'General Contractor 511114', badge1Am: 'አጠቃላይ ተቋራጭ 511114',
-    badge2En: 'Trade Bureau Licensed', badge2Am: 'በንግድ ቢሮ ፈቃድ',
-    badge3En: '18+ Years', badge3Am: '18+ ዓመታት'
+    badge1En: 'General Contractor G5', badge1Am: 'አጠቃላይ ተቋራጭ 511114',
+    badge2En: 'Trusted', badge2Am: 'ma',
+    badge3En: '10+ Years', badge3Am: '18+ ዓመታት'
   },
   stats: [
     { id: 's1', num: '120+', lblEn: 'Projects Delivered', lblAm: 'የተጠናቀቁ ፕሮጀክቶች' },
